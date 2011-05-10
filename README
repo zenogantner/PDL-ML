@@ -1,4 +1,6 @@
 Some machine learning algorithms implemented using the Perl Data Language (PDL)
 
+For each program, the --help option gives usage information.
+
 Example datasets can be downloaded from
 http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/

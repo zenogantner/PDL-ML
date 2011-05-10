@@ -1,4 +1,5 @@
-Some machine learning algorithms implemented using the Perl Data Language (PDL)
+Some machine learning algorithms implemented using the Perl Data Language (PDL).
+This code serves mainly educational purposes.
 
 For each program, the --help option gives usage information.
 

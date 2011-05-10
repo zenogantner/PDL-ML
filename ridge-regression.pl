@@ -36,11 +36,7 @@ if ($training_file eq '') {
 
 my ( $instances, $targets ) = convert_to_pdl(read_data($training_file));
 
-# compute linear regression parameters
-my $xtx = $instances x transpose $instances;
-$xtx += $shrinkage x identity($xtx);
-my $xty = $instances x transpose $targets;
-my $params = msolve($xtx, $xty);
+my $params = train_ridge_regression($instances, $targets, $shrinkage);
 
 # compute RSS and RMSE
 if ($compute_fit) {
@@ -69,6 +65,20 @@ if ($test_file) {
         }
 }
 
+exit 0;
+
+# compute ridge regression parameters
+sub train_ridge_regression {
+        my ($instances, $targets, $shrinkage) = @_;
+        
+        my $xtx = $instances x transpose $instances;
+        $xtx += $shrinkage x identity($xtx);
+        my $xty = $instances x transpose $targets;
+        
+        return  msolve($xtx, $xty);
+}
+        
+# convert Perl data structure to piddles
 sub convert_to_pdl {
         my ($data_ref, $num_features) = @_;
 
@@ -89,6 +99,7 @@ sub convert_to_pdl {
         return ( $instances, $targets );
 }
 
+# read LIBSVM-formatted data from file
 sub read_data {
         my ($training_file) = @_;
 
@@ -114,6 +125,7 @@ sub read_data {
         return (\@labeled_instances, $num_features); # TODO named return
 }
 
+# write row vector to text file, one line per entry
 sub write_vector {
         my ($vector, $filename) = @_;
         open my $fh, '>', $filename;

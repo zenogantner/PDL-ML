@@ -19,12 +19,15 @@ use PDL::NiceSlice;
 GetOptions(
 	   'help'              => \(my $help            = 0),
 	   'compute-fit'       => \(my $compute_fit     = 0),
+	   'shrinkage=f'       => \(my $shrinkage       = 0.0),
 	   'training-file=s'   => \(my $training_file   = ''),
 	   'test-file=s'       => \(my $test_file       = ''),
 	   'prediction-file=s' => \(my $prediction_file = ''),
 	  ) or usage(-1);
 
 usage(0) if $help;
+
+$shrinkage += 0; # workaround for PDL or Getopt::Long bug (?)
 
 if ($training_file eq '') {
         print STDERR "Please give --training-file=FILE";
@@ -35,13 +38,13 @@ my ( $instances, $targets ) = convert_to_pdl(read_data($training_file));
 
 # compute linear regression parameters
 my $xtx = $instances x transpose $instances;
+$xtx += $shrinkage x identity($xtx);
 my $xty = $instances x transpose $targets;
 my $params = msolve($xtx, $xty);
 
 # compute RSS and RMSE
 if ($compute_fit) {
-        my @dims = dims($instances);
-        my $num_instances = $dims[0];
+        my $num_instances = (dims $instances)[0];
         
         my $pred = $params->transpose x $instances; # parentheses or OO notation are important here!!
         my $rss = sum(($pred - $targets) ** 2);
@@ -52,14 +55,14 @@ if ($compute_fit) {
 # test/write out predictions
 if ($test_file) {
         my ( $test_instances, $test_targets ) = convert_to_pdl(read_data($test_file));
-        my @test_dims = dims($test_instances);
-        my $num_test_instances = $test_dims[0];
         my $test_pred = $params->transpose x $test_instances;
         
         if ($prediction_file) {
-                say $test_pred;
+                say $test_pred; # TODO write out
         }
         else {
+                my $num_test_instances = (dims $test_instances)[0];                
+                
                 my $test_rss  = sum(($test_pred - $targets) ** 2);
                 my $test_rmse = sqrt($test_rss / $num_test_instances);
                 say "RMSE $test_rmse";
@@ -79,7 +82,6 @@ sub convert_to_pdl {
                 $targets($i, 0) .= $target;
                 
                 foreach my $id (keys %$feature_value_ref) {
-                        #say $id;
                         $instances($i, $id) .= $feature_value_ref->{$id};
                 }
         }
@@ -124,6 +126,7 @@ usage: $PROGRAM_NAME [OPTIONS] [INPUT]
 
     --help                  display this usage information
     --compute-fit           compute RSS and RMSE on training data
+    --shrinkage=NUM         shrinkage (regularization) parameter for ridge regression
     --training-file=FILE    read training data from FILE
     --test-file=FILE        evaluate on FILE
     --prediction-file=FILE  write predictions for instances in the test file to FILE

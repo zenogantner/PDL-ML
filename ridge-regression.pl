@@ -46,10 +46,10 @@ my $params = msolve($xtx, $xty);
 if ($compute_fit) {
         my $num_instances = (dims $instances)[0];
 
-        my $pred = $params->transpose x $instances; # parentheses or OO notation are important here!!
+        my $pred = $params->transpose x $instances; # parentheses or OO notation are important here
         my $rss = sum(($pred - $targets) ** 2);
         my $rmse = sqrt($rss / $num_instances);
-        say "RSS $rss FIT_RMSE $rmse";
+        say "RSS $rss FIT_RMSE $rmse N $num_instances";
 }
 
 # test/write out predictions
@@ -65,7 +65,7 @@ if ($test_file) {
 
                 my $test_rss  = sum(($test_pred - $targets) ** 2);
                 my $test_rmse = sqrt($test_rss / $num_test_instances);
-                say "RMSE $test_rmse";
+                say "RMSE $test_rmse N $num_test_instances";
         }
 }
 

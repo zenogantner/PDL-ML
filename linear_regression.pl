@@ -62,7 +62,7 @@ if ($test_file) {
         else {
                 my $num_test_instances = (dims $test_instances)[0];
 
-                my $test_rss  = sum(($test_pred - $targets) ** 2);
+                my $test_rss  = sum(($test_pred - $test_targets) ** 2);
                 my $test_rmse = sqrt($test_rss / $num_test_instances);
                 say "RMSE $test_rmse N $num_test_instances";
         }

@@ -23,7 +23,7 @@ GetOptions(
 	   'help'              => \(my $help            = 0),
 	   'verbose'           => \(my $verbose         = 0),
 	   'compute-fit'       => \(my $compute_fit     = 0),
-	   'epsilon=f'         => \(my $epsilon         = 0.001),
+	   'epsilon=f'         => \(my $epsilon         = 0.1),
 	   'training-file=s'   => \(my $training_file   = ''),
 	   'test-file=s'       => \(my $test_file       = ''),
 	   'prediction-file=s' => \(my $prediction_file = ''),

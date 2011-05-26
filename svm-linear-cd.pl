@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# SVM example - SMO variant worst-violating pair by Keerthi (2001)
+# SVM example - coordinate descent for linear SVMs
 
 # Get example dataset with
 # wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
@@ -8,26 +8,13 @@
 # (c) 2011 Zeno Gantner
 # License: GPL
 
-# TODO:
-#  - handle bias correctly
-#  - handle arbitrary two-class and multi-class problems
-#  - move shared code into module
-#  - use sparse data structures
-#  - shrinking heuristics
-#  - --verbose
-#  - other learning algorithms
-#  - support-vector regression
-#  - probability via Platt smoothing
-#  - internal CV
-#  - load/save model
-
 use strict;
 use warnings;
 use 5.10.1;
 
 use English qw( -no_match_vars );
 use Getopt::Long;
-use List::Util qw();
+use List::Util;
 use PDL;
 use PDL::LinearAlgebra;
 use PDL::NiceSlice;
@@ -39,11 +26,7 @@ GetOptions(
 	   'training-file=s'   => \(my $training_file   = ''),
 	   'test-file=s'       => \(my $test_file       = ''),
 	   'prediction-file=s' => \(my $prediction_file = ''),
-	   'kernel=s'          => \(my $kernel          = 'rbf'),
-	   'degree=i'          => \(my $degree          = 2),
-	   'gamma=f'           => \(my $gamma           = 1),
 	   'c=f'               => \(my $c               = 1),
-	   #'probabilities'     => \(my $probabilities   = 0),
 	  ) or usage(-1);
 
 usage(0) if $help;
@@ -54,14 +37,6 @@ if ($training_file eq '') {
         usage(-1);
 }
 
-my %kernel = (
-        'linear'     => sub { sum($_[0] * $_[1]) }, # TODO why does inner() not work?
-        'polynomial' => sub { (1 + sum($_[0] * $_[1])) ** $degree },
-        'rbf'        => sub { exp( (sum(($_[0] - $_[1]) * ($_[0] - $_[1])) / $gamma) ) }, # TODO think about possible speed-ups
-);
-my $K = $kernel{$kernel};
-
-
 my ( $instances, $targets ) = convert_to_pdl(read_data($training_file));
 say "X $instances";
 say "y $targets";
@@ -69,7 +44,7 @@ my $num_instances = (dims $instances)[0];
 my $num_features  = (dims $instances)[1];
 
 # solve optimization problem
-my $alpha = smo($instances, $targets);
+my $alpha = coordinate_descent($instances, $targets);
 # prepare prediction function
 my $num_support_vectors = sum($alpha != 0);
 my $relevant_instances       = zeros($num_support_vectors, $num_features);
@@ -149,83 +124,27 @@ sub min_max {
         return $b;
 }
 
-sub max {
-        my ($x, $y) = @_;
-        
-        return $x if $x > $y;
-        return $y;
-}
-
-sub min {
-        my ($x, $y) = @_;
-        
-        return $x if $x < $y;
-        return $y;
-}
-
 # solve dual optimization problem
-sub smo {
+sub coordinate_descent {
         my ($x, $y) = @_;
 
-        my $alpha = zeros($num_instances);
-        my $f     = $y->copy;
+        my $alpha = zeros($num_instances)o;
+        my $beta  = zeros($num_instances);
 
-        my $i = 0;
-        my $j = 0;
-        for (my $idx = 0; $idx < $num_instances; $idx++) { # TODO find a more elegant PDL formulation
-                if ($y($idx) == 1) {
-                        $i = $idx;
-                        last;
+        my $changes = 0;
+        do {
+                $changes = 0;
+                # TODO random order
+                foreach my $i (0 .. $num_instances - 1) {
+                        my $delta_alpha = min_max(
+                                                 (1 - $y($i) * $beta->transpose x $x($i)) / sum($x($i) * $x($i)),
+                                                 -$alpha($i),
+                                                 $c - $alpha($i),
+                                                  );
+                        
+                        $changes = 1 if $delta_alpha > $epsilon;
                 }
-        }        
-        for (my $idx = 0; $idx < $num_instances; $idx++) { # TODO find a more elegant PDL formulation
-                if ($y($idx) == -1) {
-                        $j = $idx;
-                        last;
-                }
-        }
-
-        while ($f($i) - $f($j) > $epsilon) {
-                say 'stopping criterion: ' . sum($f($i) - $f($j));
-                #say "a[$i]=" . $alpha($i) . ", a[$j]=" . $alpha($j);
-                #say "f[$i]=" . $f($i)     . ", f[$j]=" . $f($j);
-                
-                my $delta_alpha = ($f($i) - $f($j)) / ( &$K($x($i), $x($i)) +  &$K($x($j), $x($j)) - 2 * &$K($x($i), $x($j)) );
-                # TODO cache/memoize kernel evaluation
-                
-                if ($y($i) * $y($j) == -1) {
-                        $delta_alpha = $y($i) * min_max(
-                                                        $y($i) * $delta_alpha,
-                                                        - min($alpha($i), $alpha($j)),
-                                                        $c - max($alpha($i), $alpha($j))
-                                                        );
-                }
-                else {
-                        $delta_alpha = $y($i) * min_max(
-                                                        $y($i) * $delta_alpha,
-                                                        - min($alpha($i), $c - $alpha($j)),
-                                                        min($c - $alpha($i), $alpha($j))
-                                                        );                        
-                }
-                $alpha($i) .= $alpha($i) + $y($i) * $delta_alpha; # TODO in-place modification?
-                $alpha($j) .= $alpha($j) - $y($j) * $delta_alpha; # TODO in-place modification?
-                
-                my $max_f_index = 0;
-                my $min_f_index = 0;
-                for (my $k = 0; $k < $num_instances; $k++) {
-                        $f($k) .= $f($k) - $delta_alpha * ( &$K($x($k), $x($i)) - &$K($x($k), $x($j)) );  # TODO in-place modification?
-                        if ( ($y($k) == +1 && $alpha($k) < $c) || ($y($k) == -1 && $alpha($k) > 0) ) {
-                                $max_f_index = $k if $f($k) > $f($max_f_index);
-                        }
-                        if ( ($y($k) == -1 && $alpha($k) < $c) || ($y($k) == +1 && $alpha($k) > 0) ) {
-                                $min_f_index = $k if $f($k) < $f($min_f_index);
-                        }
-                }
-                $i = $max_f_index;
-                $j = $min_f_index;
-        }
-
-        return $alpha;
+        } while $changes;
 }
 
 # convert Perl data structure to piddles
@@ -297,7 +216,7 @@ sub usage {
     print << "END";
 $PROGRAM_NAME
 
-Perl Data Language SVM example
+Perl Data Language SVM example: coordinate descent for linear SVMs
 
 usage: $PROGRAM_NAME [OPTIONS] [INPUT]
 
@@ -307,9 +226,6 @@ usage: $PROGRAM_NAME [OPTIONS] [INPUT]
     --training-file=FILE    read training data from FILE
     --test-file=FILE        evaluate on FILE
     --prediction-file=FILE  write predictions for instances in the test file to FILE
-    --kernel=linear|polynomial|rbf
-    --gamma                 gamma parameter for the RBF (Gaussian) kernel
-    --degree=INT            degree for the polynomial kernel (>0)
     --c=NUM                 complexity parameter C
 END
     exit $return_code;

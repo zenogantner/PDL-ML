@@ -8,9 +8,6 @@
 # (c) 2011 Zeno Gantner
 # License: GPL
 
-# TODO
-#  - bias handling via features (for all linear SVM programs)
-
 use strict;
 use warnings;
 use 5.10.1;
@@ -46,7 +43,7 @@ my $num_instances = (dims $instances)[0];
 my $num_features  = (dims $instances)[1];
 
 # solve optimization problem
-my ($alpha, $beta) = coordinate_descent($instances, $targets);
+my ($alpha, $beta) = cutting_plane($instances, $targets);
 # prepare prediction function
 my $num_support_vectors = sum($alpha != 0);
 my $predict = sub {
@@ -111,31 +108,10 @@ sub min_max {
 }
 
 # solve dual optimization problem
-sub coordinate_descent {
+sub cutting_plane {
         my ($x, $y) = @_;
 
-        my $alpha = zeros($num_instances);
-        my $beta  = zeros($num_features);
-
-        my $changes_counter = 0;
-        do {
-                $changes_counter = 0;
-                # TODO random order
-                foreach my $i (0 .. $num_instances - 1) {
-                        my $delta_alpha = min_max(
-                                                 (1 - $y($i) * $beta x $x($i)) / sum($x($i) * $x($i)),
-                                                 -$alpha($i),
-                                                 $c - $alpha($i),
-                                                  );
-                        
-                        $alpha($i) .= $alpha($i) + $delta_alpha;
-                        $beta = $beta + $delta_alpha * $y($i) * $x($i)->transpose;
-
-                        $changes_counter++ if abs($delta_alpha) > $epsilon;
-                }
-                say "$changes_counter changes" if $verbose;
-        } while $changes_counter;
-        
+# TODO        
         return ($alpha, $beta);
 }
 

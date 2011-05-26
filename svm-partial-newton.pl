@@ -1,29 +1,12 @@
 #!/usr/bin/perl
 
-# SVM example - SMO variant worst-violating pair by Keerthi (2001)
+# SVM example - partial newton solver Chen, Fan, Lin 2006
 
 # Get example dataset with
 # wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
 
 # (c) 2011 Zeno Gantner
 # License: GPL
-
-# TODO:
-#  - handle bias correctly
-#  - handle arbitrary two-class and multi-class problems
-#  - move shared code into module
-#  - use sparse data structures
-#  - shrinking heuristics
-#  - --verbose
-#  - additional methods
-#    - implement original SMO
-#    - use generic QP solver
-#    - gradient descent
-#  - time measurements etc.
-#  - support-vector regression
-#  - probability via Platt smoothing
-#  - internal CV
-#  - load/save model
 
 use strict;
 use warnings;
@@ -73,7 +56,7 @@ my $num_instances = (dims $instances)[0];
 my $num_features  = (dims $instances)[1];
 
 # solve optimization problem
-my $alpha = smo($instances, $targets);
+my $alpha = solve_partial_newton($instances, $targets);
 # prepare prediction function
 my $num_support_vectors = sum($alpha != 0);
 my $relevant_instances       = zeros($num_support_vectors, $num_features);
@@ -168,7 +151,7 @@ sub min {
 }
 
 # solve dual optimization problem
-sub smo {
+sub solve_partial_newton {
         my ($x, $y) = @_;
 
         my $alpha = zeros($num_instances);
@@ -190,9 +173,7 @@ sub smo {
         }
 
         while ($f($i) - $f($j) > $epsilon) {
-                say 'stopping criterion: ' . sum($f($i) - $f($j));
-                #say "a[$i]=" . $alpha($i) . ", a[$j]=" . $alpha($j);
-                #say "f[$i]=" . $f($i)     . ", f[$j]=" . $f($j);
+                say 'stopping criterion: ' . abs($f($i) - $f($j));
                 
                 my $delta_alpha = ($f($i) - $f($j)) / ( &$K($x($i), $x($i)) +  &$K($x($j), $x($j)) - 2 * &$K($x($i), $x($j)) );
                 # TODO cache/memoize kernel evaluation
@@ -214,19 +195,22 @@ sub smo {
                 $alpha($i) .= $alpha($i) + $y($i) * $delta_alpha; # TODO in-place modification?
                 $alpha($j) .= $alpha($j) - $y($j) * $delta_alpha; # TODO in-place modification?
                 
-                my $max_f_index = 0;
-                my $min_f_index = 0;
-                for (my $k = 0; $k < $num_instances; $k++) {
+                for (my $k = 0; $k < $num_instances; $k++) { # TODO use smarter data structures to access positive class instances
                         $f($k) .= $f($k) - $delta_alpha * ( &$K($x($k), $x($i)) - &$K($x($k), $x($j)) );  # TODO in-place modification?
-                        if ( ($y($k) == +1 && $alpha($k) < $c) || ($y($k) == -1 && $alpha($k) > 0) ) {
-                                $max_f_index = $k if $f($k) > $f($max_f_index);
-                        }
-                        if ( ($y($k) == -1 && $alpha($k) < $c) || ($y($k) == +1 && $alpha($k) > 0) ) {
-                                $min_f_index = $k if $f($k) < $f($min_f_index);
+                        next if $y($k) == -1;
+                        
+                        # TODO find i
+                }
+                my $max_val = 0;
+                for (my $k = 0; $k < $num_instances; $k++) { # TODO use smarter data structures to access negative class instances
+                        next if $y($k) == +1;
+                        
+                        my $val = (($f($i) - $f($k)) ** 2) / ( &$K($x($i), $x($i)) +  &$K($x($k), $x($k)) - 2 * &$K($x($i), $x($k)) );
+                        if ($val > $max_val) {
+                                $j = $k;
+                                $max_val = $val;
                         }
                 }
-                $i = $max_f_index;
-                $j = $min_f_index;
         }
 
         return $alpha;
@@ -300,7 +284,7 @@ sub usage {
     print << "END";
 $PROGRAM_NAME
 
-Perl Data Language SVM example
+Perl Data Language SVM example: partial newton solver
 
 usage: $PROGRAM_NAME [OPTIONS] [INPUT]
 

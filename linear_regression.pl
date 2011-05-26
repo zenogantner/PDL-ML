@@ -10,7 +10,7 @@
 
 use strict;
 use warnings;
-use 5.10.0;
+use 5.10.1;
 
 use English qw( -no_match_vars );
 use Getopt::Long;
@@ -22,7 +22,7 @@ use PDL::NiceSlice;
 GetOptions(
 	   'help'              => \(my $help            = 0),
 	   'compute-fit'       => \(my $compute_fit     = 0),
-	   'shrinkage=f'       => \(my $shrinkage       = 0.0),
+	   'regularization=f'  => \(my $regularization  = 0.0),
 	   'training-file=s'   => \(my $training_file   = ''),
 	   'test-file=s'       => \(my $test_file       = ''),
 	   'prediction-file=s' => \(my $prediction_file = ''),
@@ -30,7 +30,7 @@ GetOptions(
 
 usage(0) if $help;
 
-$shrinkage += 0.0; # workaround for PDL or Getopt::Long bug (?)
+$regularization += 0.0; # workaround for PDL or Getopt::Long bug (?)
 
 if ($training_file eq '') {
         say "Please give --training-file=FILE";
@@ -75,7 +75,7 @@ sub train_ridge_regression {
         my ($instances, $targets) = @_;
 
         my $xtx = $instances x transpose $instances;
-        $xtx += $shrinkage x identity($xtx);
+        $xtx += $regularization x identity($xtx);
         my $xty = $instances x transpose $targets;
 
         return  msolve($xtx, $xty);
@@ -151,7 +151,7 @@ usage: $PROGRAM_NAME [OPTIONS] [INPUT]
 
     --help                  display this usage information
     --compute-fit           compute RSS and RMSE on training data
-    --shrinkage=NUM         shrinkage (regularization) parameter for ridge regression
+    --regularization=NUM    shrinkage (regularization) parameter for ridge regression
     --training-file=FILE    read training data from FILE
     --test-file=FILE        evaluate on FILE
     --prediction-file=FILE  write predictions for instances in the test file to FILE

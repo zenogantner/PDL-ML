@@ -126,7 +126,7 @@ sub convert_to_pdl {
         my ($data_ref, $num_features) = @_;
 
         my $instances = zeros scalar @$data_ref, $num_features + 1;
-        my $targets   = zeros scalar @$data_ref, 1;
+        my $targets   = zeros scalar @$data_ref;
 
         for (my $i = 0; $i < scalar @$data_ref; $i++) {
                 my ($feature_value_ref, $target) = @{ $data_ref->[$i] };

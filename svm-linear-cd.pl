@@ -21,6 +21,7 @@ use PDL::NiceSlice;
 
 GetOptions(
 	   'help'              => \(my $help            = 0),
+	   'verbose'           => \(my $verbose         = 0),
 	   'compute-fit'       => \(my $compute_fit     = 0),
 	   'epsilon=f'         => \(my $epsilon         = 0.001),
 	   'training-file=s'   => \(my $training_file   = ''),
@@ -38,39 +39,17 @@ if ($training_file eq '') {
 }
 
 my ( $instances, $targets ) = convert_to_pdl(read_data($training_file));
-say "X $instances";
-say "y $targets";
 my $num_instances = (dims $instances)[0];
 my $num_features  = (dims $instances)[1];
 
 # solve optimization problem
-my $alpha = coordinate_descent($instances, $targets);
+my ($alpha, $beta) = coordinate_descent($instances, $targets);
 # prepare prediction function
 my $num_support_vectors = sum($alpha != 0);
-my $relevant_instances       = zeros($num_support_vectors, $num_features);
-my $relevant_instances_alpha = zeros($num_support_vectors); # actually: <alpha, y>
-my $offset = 0; # TODO
-my $pos = 0;
-say "alpha $alpha";
-say $relevant_instances_alpha;
-for (my $i = 0; $i < $num_instances; $i++) {       
-        if ($alpha($i) > 0) {
-            $relevant_instances($pos)       .= $instances($i);
-            $relevant_instances_alpha($pos) .= $alpha($i) * $targets($i);
-            $pos++;
-        }
-}
-print "ri ";
-say $relevant_instances;
-print "ri_a ";
-say $relevant_instances_alpha;
 my $predict = sub {
         my ($x) = @_;
-        
-        my $score = $offset;
-        for (my $i = 0; $i < $num_support_vectors; $i++) {
-                $score += $relevant_instances_alpha($i) * &$K($relevant_instances($i), $x);
-        }
+
+        my $score = $beta x $x;
         
         return $score <=> 0;
 };
@@ -80,17 +59,21 @@ my $predict_several = sub {
         
         my $predictions = zeros($num_instances);
         for (my $i = 0; $i < $num_instances; $i++) {
-                $predictions($i) = &$predict($instances($i));
+                $predictions($i) .= &$predict($instances($i));
         }
         
         return $predictions;
 };
 
-# compute accuracy
+# compute fit
 if ($compute_fit) {
-        my $pred = $predict_several->($instances);
+        my $pred = &$predict_several($instances);
+
+        say $pred;
+        say $targets;
 
         my $fit_err  = sum(abs($pred - $targets));
+        say $fit_err;
         $fit_err /= $num_instances;
 
         say "FIT_ERR $fit_err N $num_instances";
@@ -128,23 +111,29 @@ sub min_max {
 sub coordinate_descent {
         my ($x, $y) = @_;
 
-        my $alpha = zeros($num_instances)o;
-        my $beta  = zeros($num_instances);
+        my $alpha = zeros($num_instances);
+        my $beta  = zeros($num_features);
 
-        my $changes = 0;
+        my $changes_counter = 0;
         do {
-                $changes = 0;
+                $changes_counter = 0;
                 # TODO random order
                 foreach my $i (0 .. $num_instances - 1) {
                         my $delta_alpha = min_max(
-                                                 (1 - $y($i) * $beta->transpose x $x($i)) / sum($x($i) * $x($i)),
+                                                 (1 - $y($i) * $beta x $x($i)) / sum($x($i) * $x($i)),
                                                  -$alpha($i),
                                                  $c - $alpha($i),
                                                   );
                         
-                        $changes = 1 if $delta_alpha > $epsilon;
+                        $alpha($i) .= $alpha($i) + $delta_alpha;
+                        $beta = $beta + $delta_alpha * $y($i) * $x($i)->transpose;
+
+                        $changes_counter++ if abs($delta_alpha) > $epsilon;
                 }
-        } while $changes;
+                say "$changes_counter changes" if $verbose;
+        } while $changes_counter;
+        
+        return ($alpha, $beta);
 }
 
 # convert Perl data structure to piddles
@@ -194,7 +183,6 @@ sub read_data {
         close $fh;
 
         $num_features++; # take care of features starting index 0
-        say $num_features;
 
         return (\@labeled_instances, $num_features); # TODO named return
 }
@@ -221,6 +209,7 @@ Perl Data Language SVM example: coordinate descent for linear SVMs
 usage: $PROGRAM_NAME [OPTIONS] [INPUT]
 
     --help                  display this usage information
+    --verbose               show diagnostic/progress output
     --epsilon=NUM           set convergence sensitivity to NUM
     --compute-fit           compute error on training data
     --training-file=FILE    read training data from FILE

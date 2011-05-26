@@ -105,15 +105,15 @@ my $predict_several = sub {
         
         my $predictions = zeros($num_instances);
         for (my $i = 0; $i < $num_instances; $i++) {
-                $predictions($i) = &$predict($instances($i));
+                $predictions($i) .= &$predict($instances($i));
         }
         
         return $predictions;
 };
 
-# compute accuracy
+# compute fit
 if ($compute_fit) {
-        my $pred = $predict_several->($instances);
+        my $pred = &$predict_several($instances);
 
         my $fit_err  = sum(abs($pred - $targets));
         $fit_err /= $num_instances;
@@ -275,7 +275,6 @@ sub read_data {
         close $fh;
 
         $num_features++; # take care of features starting index 0
-        say $num_features;
 
         return (\@labeled_instances, $num_features); # TODO named return
 }

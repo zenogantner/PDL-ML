@@ -5,3 +5,10 @@ For each program, the --help option gives usage information.
 
 Example datasets can be downloaded from
 http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
+
+TODO
+ - finish the implementations
+ - implement (batch) subgradient descent
+ - modularize
+ - add tests
+ - upload to CPAN

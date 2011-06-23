@@ -1,9 +1,6 @@
 #!/usr/bin/perl
 
-# SVM example - coordinate descent for linear SVMs
-
-# Get example dataset with
-# wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
+# SVM example - dual coordinate descent for linear SVMs
 
 # (c) 2011 Zeno Gantner
 # License: GPL 3 or later
@@ -61,6 +58,32 @@ my $predict_several = sub {
         return $predictions;
 };
 
+if ($compute_fit) {
+        my $pred = &$predict_several($instances);
+
+        my $fit_err = sum($pred * $targets == -1);        
+        $fit_err /= $num_instances;
+
+        say "FIT_ERR $fit_err N $num_instances";
+}
+
+# test/write out predictions
+if ($test_file) {
+        my ( $test_instances, $test_targets ) = convert_to_pdl(read_data($test_file));
+        my $test_pred = &$predict_several($test_instances);
+
+        if ($prediction_file) {
+                write_vector($test_pred, $prediction_file);
+        }
+        else {
+                my $num_test_instances = (dims $test_instances)[0];
+
+                my $test_err = sum($test_pred * $test_targets == -1);
+                $test_err /= $num_test_instances;
+                say "ERR $test_err N $num_test_instances";
+        }
+}
+
 exit 0;
 
 sub bounded_by {
@@ -81,10 +104,9 @@ sub coordinate_descent {
         my $changes_counter = 0;
         do {
                 $changes_counter = 0;
-                # TODO random order
-                foreach my $i (0 .. $num_instances - 1) {
+                foreach my $i (0 .. $num_instances - 1) { # TODO random order
                         my $delta_alpha = bounded_by(
-                                                 (1 - $y($i) * $beta x $x($i)) / sum($x($i) * $x($i)),
+                                                 (1 - $y($i) * $beta x $x($i)) / sum($x($i) * $x($i)), # TODO more elegant scalar product
                                                  -$alpha($i),
                                                  $c - $alpha($i),
                                                   );
@@ -146,7 +168,9 @@ sub read_data {
         }
         close $fh;
 
-        $num_features++; # take care of features starting index 0
+        $num_features++; # take care of features starting with index 0
+
+        say $num_features . " features";
 
         return (\@labeled_instances, $num_features); # TODO named return
 }

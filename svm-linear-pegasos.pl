@@ -65,11 +65,10 @@ my $predict_several = sub {
         return $predictions;
 };
 
-# compute fit
 if ($compute_fit) {
         my $pred = &$predict_several($instances);
 
-        my $fit_err = ($num_instances - sum($pred * $targets)) / 2;        
+        my $fit_err = sum($pred * $targets == -1);        
         $fit_err /= $num_instances;
 
         say "FIT_ERR $fit_err N $num_instances";
@@ -86,7 +85,7 @@ if ($test_file) {
         else {
                 my $num_test_instances = (dims $test_instances)[0];
 
-                my $test_err = ($num_test_instances - sum($test_pred * $test_targets)) / 2;
+                my $test_err = sum($test_pred * $test_targets == -1);
                 $test_err /= $num_test_instances;
                 say "ERR $test_err N $num_test_instances";
         }

@@ -12,6 +12,8 @@ http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
 
 License: GPL 3 or later
 
+stats: 1205 lines
+
 TODO
  - finish the implementations
  - implement (batch) subgradient descent

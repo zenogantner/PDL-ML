@@ -6,7 +6,7 @@
 # wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
 
 # (c) 2011 Zeno Gantner
-# License: GPL
+# License: GPL 3 or later
 
 # TODO
 #  - block gradient descent
@@ -53,14 +53,14 @@ my $num_features  = (dims $instances)[1];
 # solve optimization problem
 my ($bias, $beta) = sgd($instances, $targets);
 # prepare prediction function
-my $predict = sub { return $bias + $beta x $_[0] <=> 0; };
+my $predict = sub { return $bias + $beta x $_[0] >= 0 ? +1 : -1; };
 my $predict_several = sub {
         my ($instances) = @_;        
         my $num_instances = (dims $instances)[0];
         
         my $predictions = zeros($num_instances);
         for (my $i = 0; $i < $num_instances; $i++) {
-                $predictions($i) .= $bias + $beta x $instances($i) <=> 0;
+                $predictions($i) .= $bias + $beta x $instances($i) >= 0 ? +1 : -1;
         }
         
         return $predictions;

@@ -6,7 +6,7 @@
 # wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
 
 # (c) 2011 Zeno Gantner
-# License: GPL
+# License: GPL 3 or later
 
 # TODO
 #  - bias handling via features (for all linear SVM programs)
@@ -48,66 +48,27 @@ my $num_features  = (dims $instances)[1];
 # solve optimization problem
 my ($alpha, $beta) = coordinate_descent($instances, $targets);
 # prepare prediction function
-my $num_support_vectors = sum($alpha != 0);
-my $predict = sub {
-        my ($x) = @_;
-
-        my $score = $beta x $x;
-        
-        return $score <=> 0;
-};
+my $predict = sub { return $beta x $_[0] >= 0 ? +1 : -1; };
 my $predict_several = sub {
         my ($instances) = @_;        
         my $num_instances = (dims $instances)[0];
         
         my $predictions = zeros($num_instances);
         for (my $i = 0; $i < $num_instances; $i++) {
-                $predictions($i) .= &$predict($instances($i));
+                $predictions($i) .= $beta x $instances($i) >= 0 ? +1 : -1;
         }
         
         return $predictions;
 };
 
-# compute fit
-if ($compute_fit) {
-        my $pred = &$predict_several($instances);
-
-        say $pred;
-        say $targets;
-
-        my $fit_err  = sum(abs($pred - $targets));
-        say $fit_err;
-        $fit_err /= $num_instances;
-
-        say "FIT_ERR $fit_err N $num_instances";
-}
-
-# test/write out predictions
-if ($test_file) {
-        my ( $test_instances, $test_targets ) = convert_to_pdl(read_data($test_file));
-        my $test_pred = &$predict_several($test_instances);
-
-        if ($prediction_file) {
-                write_vector($test_pred, $prediction_file);
-        }
-        else {
-                my $num_test_instances = (dims $test_instances)[0];
-
-                my $test_err  = sum(abs($test_pred - $test_targets));
-                $test_err /= $num_test_instances;
-                say "ERR $test_err N $num_test_instances";
-        }
-}
-
 exit 0;
 
-# TODO better name?
-sub min_max {
+sub bounded_by {
         my ($x, $a, $b) = @_;
         
-        return $x if $x > $a && $x < $b;
-        return $a if $a >= $x && $a < $b;
-        return $b;
+        return $a if $x <= $a;
+        return $b if $x >= $b;
+        return $x;
 }
 
 # solve dual optimization problem
@@ -122,7 +83,7 @@ sub coordinate_descent {
                 $changes_counter = 0;
                 # TODO random order
                 foreach my $i (0 .. $num_instances - 1) {
-                        my $delta_alpha = min_max(
+                        my $delta_alpha = bounded_by(
                                                  (1 - $y($i) * $beta x $x($i)) / sum($x($i) * $x($i)),
                                                  -$alpha($i),
                                                  $c - $alpha($i),

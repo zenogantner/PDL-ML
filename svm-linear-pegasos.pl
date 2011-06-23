@@ -6,7 +6,7 @@
 # wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
 
 # (c) 2011 Zeno Gantner
-# License: GPL
+# License: GPL 3 or later
 
 # TODO
 #  - block gradient descent

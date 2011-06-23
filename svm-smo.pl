@@ -144,13 +144,12 @@ if ($test_file) {
 
 exit 0;
 
-# TODO better name?
-sub min_max {
+sub bounded_by {
         my ($x, $a, $b) = @_;
         
-        return $x if $x > $a && $x < $b;
-        return $a if $a >= $x && $a < $b;
-        return $b;
+        return $a if $x <= $a;
+        return $b if $x >= $b;
+        return $x;
 }
 
 sub max {
@@ -177,7 +176,7 @@ sub smo {
         my $i = 0;
         my $j = 0;
         for (my $idx = 0; $idx < $num_instances; $idx++) { # TODO find a more elegant PDL formulation
-                if ($y($idx) == 1) {
+                if ($y($idx) == +1) {
                         $i = $idx;
                         last;
                 }
@@ -198,14 +197,14 @@ sub smo {
                 # TODO cache/memoize kernel evaluation
                 
                 if ($y($i) * $y($j) == -1) {
-                        $delta_alpha = $y($i) * min_max(
+                        $delta_alpha = $y($i) * bounded_by(
                                                         $y($i) * $delta_alpha,
                                                         - min($alpha($i), $alpha($j)),
                                                         $c - max($alpha($i), $alpha($j))
                                                         );
                 }
                 else {
-                        $delta_alpha = $y($i) * min_max(
+                        $delta_alpha = $y($i) * bounded_by(
                                                         $y($i) * $delta_alpha,
                                                         - min($alpha($i), $c - $alpha($j)),
                                                         min($c - $alpha($i), $alpha($j))

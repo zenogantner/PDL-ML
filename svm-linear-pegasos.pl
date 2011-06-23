@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# SVM example - stochastic (sub)gradient descent for linear SVMs
+# SVM example - Pegasos solver for linear SVMs
 
 # Get example dataset with
 # wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
@@ -34,7 +34,6 @@ GetOptions(
 	   'test-file=s'       => \(my $test_file       = ''),
 	   'prediction-file=s' => \(my $prediction_file = ''),
 	   'regularization=f'  => \(my $regularization  = 0.01),
-	   'learn-rate=f'      => \(my $learn_rate      = 0.001),
 	   'num-iter=i'        => \(my $num_iter        = 10),
 	  ) or usage(-1);
 
@@ -51,21 +50,22 @@ my $num_instances = (dims $instances)[0];
 my $num_features  = (dims $instances)[1];
 
 # solve optimization problem
-my ($bias, $beta) = sgd($instances, $targets);
+my ($bias, $beta) = pegasos($instances, $targets);
 # prepare prediction function
-my $predict = sub { return $bias + $beta x $_[0] <=> 0; };
+my $predict = sub { return $bias + $beta x $_[0] >= 0 ? +1 : -1; };
 my $predict_several = sub {
         my ($instances) = @_;        
         my $num_instances = (dims $instances)[0];
         
         my $predictions = zeros($num_instances);
         for (my $i = 0; $i < $num_instances; $i++) {
-                $predictions($i) .= $bias + $beta x $instances($i) <=> 0;
+                $predictions($i) .= $bias + $beta x $instances($i) >= 0 ? +1 : -1;
         }
         
         return $predictions;
 };
 
+# compute fit
 if ($compute_fit) {
         my $pred = &$predict_several($instances);
 
@@ -104,23 +104,35 @@ sub min_max {
 }
 
 # solve primal optimization problem
-sub sgd {
+sub pegasos {
         my ($x, $y) = @_;
 
         my $bias = 0;
         my $beta = zeros $num_features;
         
-        for (my $i = 0; $i < $num_iter * $num_instances; $i++) {
+        for (my $i = 1; $i <= $num_iter * $num_instances; $i++) {
                 my $index = rand($num_instances - 1);
 
                 if ($y($index) * ($bias + $beta x $instances($index)) < 1) {
+                        # compute subgradient
                         my $diff_beta = $y($index) * $instances($index)->transpose;
                         my $diff_bias = $y($index);
                         
-                        $beta = (1 - $learn_rate * $regularization) * $beta + $learn_rate * $diff_beta;
-                        $bias -= $learn_rate * $diff_bias;
+                        # determine step size
+                        my $step_size = 1 / ($regularization * $i);
+                      
+                        # perform update
+                        $beta = (1 - $step_size * $regularization) * $beta + $step_size * $diff_beta;
+                        $bias -= $step_size * $diff_bias;
+                        
+                        # rescale
+                        my $inv_scaling_factor = sqrt($regularization) * mnorm($beta);
+                        $beta = $beta / $inv_scaling_factor if $inv_scaling_factor > 1;
                 }
         }
+
+        say $bias;
+        say $beta;
 
         return ($bias, $beta);
 }
@@ -193,7 +205,7 @@ sub usage {
     print << "END";
 $PROGRAM_NAME
 
-Perl Data Language SVM example: stochastic subgradient descent for linear SVMs
+Perl Data Language SVM example: Pegasos solver for linear SVMs
 
 usage: $PROGRAM_NAME [OPTIONS] [INPUT]
 
@@ -205,7 +217,6 @@ usage: $PROGRAM_NAME [OPTIONS] [INPUT]
     --test-file=FILE        evaluate on FILE
     --prediction-file=FILE  write predictions for instances in the test file to FILE
     --regularization=NUM    regularization parameter C
-    --learn-rate=NUM        
     --num-iter=N            number of passes over the training data
 END
     exit $return_code;

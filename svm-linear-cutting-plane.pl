@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# SVM example - coordinate descent for linear SVMs
+# SVM example - cutting plane algorithm for linear SVMs
 
 # Get example dataset with
 # wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/heart_scale
@@ -97,15 +97,6 @@ if ($test_file) {
 }
 
 exit 0;
-
-# TODO better name?
-sub min_max {
-        my ($x, $a, $b) = @_;
-        
-        return $x if $x > $a && $x < $b;
-        return $a if $a >= $x && $a < $b;
-        return $b;
-}
 
 # solve dual optimization problem
 sub cutting_plane {

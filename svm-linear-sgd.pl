@@ -94,15 +94,6 @@ if ($test_file) {
 
 exit 0;
 
-# TODO better name?
-sub min_max {
-        my ($x, $a, $b) = @_;
-        
-        return $x if $x > $a && $x < $b;
-        return $a if $a >= $x && $a < $b;
-        return $b;
-}
-
 # solve primal optimization problem
 sub sgd {
         my ($x, $y) = @_;

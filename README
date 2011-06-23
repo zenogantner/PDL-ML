@@ -1,10 +1,16 @@
 Some machine learning algorithms implemented using the Perl Data Language (PDL).
+
 This code serves mainly educational purposes.
+It is also incomplete and buggy.
+Do not use it for production.
+You have been warned.
 
 For each program, the --help option gives usage information.
 
 Example datasets can be downloaded from
 http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
+
+License: GPL 3 or later
 
 TODO
  - finish the implementations
@@ -12,3 +18,4 @@ TODO
  - modularize
  - add tests
  - upload to CPAN
+ - implement SVR

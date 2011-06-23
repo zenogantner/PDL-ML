@@ -7,6 +7,8 @@
 
 # TODO
 #  - dual coordinate descent: handle bias properly
+#  - pegasos/sgd: learn rate schedules, different block sizes
+#  - add cutting plane algorithm
 
 use strict;
 use warnings;
